@@ -149,6 +149,7 @@ The preview renders CommonMark plus these GitHub-flavored extensions:
 - Bullet and ordered lists, nested up to any depth, tight and loose
 - Task lists (`☑` / `☐`)
 - Fenced and indented code blocks, with the language label
+- Mermaid flowcharts (`graph` / `flowchart` with `TB`/`TD`, `LR`, `BT`, `RL` directions), drawn with box-drawing characters: rectangle, rounded, stadium, cylinder, circle, and diamond nodes; normal, dotted, thick, and bidirectional edges; edge labels (`-->|text|` and `-- text -->` forms). `subgraph` blocks are flattened: their nodes and edges render, the grouping box is not drawn. `<br/>` inside labels becomes a space.
 - Tables with left, center, and right alignment; long cells wrap inside their column
 - Footnotes (`[^1]`), rendered as `[1]` with the notes listed at the end
 - Definition lists
@@ -160,7 +161,8 @@ Not rendered yet:
 - **Math** (`$...$`, `$$...$$`) is shown as plain text.
 - **Raw HTML** is shown as plain text, since a terminal cannot render it.
 - **Syntax highlighting** in code blocks is not implemented. Code blocks only get a background color.
-- **Mermaid** and other diagram languages are shown as plain code blocks.
+- **Mermaid** diagrams other than flowcharts (sequence, state, ER, gantt, ...) are shown as plain code blocks. Flowcharts using unsupported syntax (`classDef`/`style`, theme directives, self-loops, parallel or opposite-direction edges, exotic shapes such as parallelograms and flags) also fall back to plain code blocks.
+- **Other diagram languages** are shown as plain code blocks.
 - **Images** are not displayed; the alt text and URL are shown.
 
 ## Configuration
@@ -185,6 +187,8 @@ The code is a single Go package:
 | `main.go` | Bubble Tea model, key and mouse handling, layout, theme |
 | `explorer.go` | Directory listing (folders first, all entries including dotfiles and symlinks) |
 | `mdrender.go` | Markdown to ANSI renderer on top of goldmark |
+| `mermaid.go` | Mermaid flowchart parser (supported subset) |
+| `mermaid_layout.go` | Layered layout, box/edge drawing for flowcharts |
 | `*_test.go` | Tests for layout geometry, keys, mouse drag and wheel, and the renderer |
 | `testdata/` | Sample Markdown used by the layout tests |
 
@@ -194,7 +198,8 @@ Dependencies: [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles
 
 - The editor's wheel scrolling moves the cursor along with the view, because `bubbles/textarea` does not expose its scroll offset.
 - The whole file is loaded into memory. Very large files will be slow to render in the preview (roughly 100 ms per 600 KB).
-- No undo beyond what the editor component provides.
+- Undo is available in NORMAL mode (`u`, one step per insert session or `dd`); redo is not implemented.
+- Mermaid flowcharts render at their natural size; a diagram wider than the preview pane is clipped on the right. Dense graphs may draw crossing edges.
 - There is no prompt for unsaved changes when opening another file.
 
 ## License

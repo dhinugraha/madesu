@@ -210,6 +210,62 @@ func (r *mdRenderer) list(l *ast.List, width, depth int) string {
 }
 
 func (r *mdRenderer) codeBlock(n ast.Node, width int) string {
+	if fc, ok := n.(*ast.FencedCodeBlock); ok {
+		if lang := fc.Language(r.src); strings.EqualFold(strings.TrimSpace(string(lang)), "mermaid") {
+			if out := r.mermaid(r.rawLines(n)); out != "" {
+				return out
+			}
+		}
+		return r.plainCode(n)
+	}
+	// A fence indented four or more spaces parses as an indented code block;
+	// still render mermaid inside it rather than printing the fence as text.
+	if body, ok := mermaidFenceBody(r.rawLines(n)); ok {
+		if out := r.mermaid(body); out != "" {
+			return out
+		}
+	}
+	return r.plainCode(n)
+}
+
+// mermaidFenceBody unwraps a mermaid fence that markdown parsed as an
+// indented code block.
+func mermaidFenceBody(raw []byte) ([]byte, bool) {
+	lines := strings.Split(string(raw), "\n")
+	if len(lines) == 0 {
+		return nil, false
+	}
+	first := strings.TrimSpace(lines[0])
+	lower := strings.ToLower(first)
+	if !strings.HasPrefix(lower, "```mermaid") && !strings.HasPrefix(lower, "~~~mermaid") {
+		return nil, false
+	}
+	fence := first[:3]
+	end := len(lines)
+	for end > 1 && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+	if end > 1 && strings.TrimSpace(lines[end-1]) == fence {
+		end--
+	}
+	return []byte(strings.Join(lines[1:end], "\n")), true
+}
+
+// mermaid renders flowchart source, or "" to fall back to plain rendering.
+func (r *mdRenderer) mermaid(raw []byte) string {
+	g, err := parseFlowchart(raw)
+	if err != nil {
+		return ""
+	}
+	out, err := layoutFlowchartStyled(g, r.st.muted)
+	if err != nil {
+		return ""
+	}
+	return strings.Join(out, "\n")
+}
+
+// plainCode is the original code-block rendering: language label plus lines.
+func (r *mdRenderer) plainCode(n ast.Node) string {
 	var b strings.Builder
 	if fc, ok := n.(*ast.FencedCodeBlock); ok {
 		if lang := fc.Language(r.src); len(lang) > 0 {

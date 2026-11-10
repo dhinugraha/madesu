@@ -145,3 +145,65 @@ func TestTableWrapsLongCells(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderMermaidFence(t *testing.T) {
+	src := "```mermaid\nflowchart TD\nA --> B\n```\n"
+	out, err := renderMarkdown([]byte(src), 40, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "[A]") || !strings.Contains(out, "▼") {
+		t.Fatalf("mermaid not rendered as a diagram:\n%s", out)
+	}
+	if strings.Contains(out, "mermaid") {
+		t.Fatalf("language label should be replaced by the diagram:\n%s", out)
+	}
+}
+
+func TestRenderMermaidFallback(t *testing.T) {
+	src := "```mermaid\nflowchart TD\nclassDef green fill:#9f6\nA --> B\n```\n"
+	out, err := renderMarkdown([]byte(src), 40, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "mermaid") {
+		t.Fatalf("fallback should keep the language label:\n%s", out)
+	}
+	if strings.Contains(out, "[A]") {
+		t.Fatalf("unsupported diagram must not render as one:\n%s", out)
+	}
+}
+
+func TestRenderMermaidCaseInsensitive(t *testing.T) {
+	src := "```Mermaid\nflowchart TD\nA --> B\n```\n"
+	out, err := renderMarkdown([]byte(src), 40, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "▼") {
+		t.Fatalf("fence language should match case-insensitively:\n%s", out)
+	}
+}
+
+func TestRenderMermaidSubgraphFlattened(t *testing.T) {
+	src := "```mermaid\nflowchart TD\nsubgraph one[\"G\"]\nA --> B\nend\n```\n"
+	out, err := renderMarkdown([]byte(src), 40, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "[A]") || !strings.Contains(out, "▼") {
+		t.Fatalf("subgraph block not flattened into a diagram:\n%s", out)
+	}
+}
+
+func TestRenderMermaidIndentedFence(t *testing.T) {
+	src := "    ```mermaid\n    flowchart LR\n    REQ[\"Request\"] --> UP[\"Upstream\"]\n    ```\n"
+	out, err := renderMarkdown([]byte(src), 80, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := plain(out)
+	if !strings.Contains(p, "[Request]") || !strings.Contains(p, "▶") {
+		t.Fatalf("indented mermaid fence not rendered:\n%s", p)
+	}
+}
